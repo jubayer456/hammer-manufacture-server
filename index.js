@@ -3,6 +3,7 @@ const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
 require('dotenv').config()
+var jwt = require('jsonwebtoken');
 const port = process.env.PORT || 5000;
 
 app.use(cors());
@@ -27,7 +28,15 @@ const run = async () => {
 
         //show review in home
         app.get('/reviews', async (req, res) => {
-            const result = await reviewCollection.find().limit(3).toArray();
+            const result = await reviewCollection.find().toArray();
+            res.send(result);
+        });
+
+        //post a review in Myreview page
+        app.post('/reviews', async (req, res) => {
+            const rev = req.body;
+            console.log(rev);
+            const result = await reviewCollection.insertOne(rev);
             res.send(result);
         });
 
@@ -54,6 +63,7 @@ const run = async () => {
             res.send(result);
         });
 
+        //login jwt token and create user 
         app.put('/users/:email', async (req, res) => {
             const user = req.body;
             const email = req.params.email;
@@ -63,7 +73,8 @@ const run = async () => {
                 $set: user
             };
             const result = await userCollection.updateOne(filter, updateDoc, options);
-            res.send(result);
+            const token = jwt.sign(filter, process.env.ACCESS_SECREET_KEY, { expiresIn: '1h' });
+            res.send({ result, token });
         })
 
         //add order booking page 
@@ -85,9 +96,10 @@ const run = async () => {
         app.delete('/booking/:id', async (req, res) => {
             const id = req.params.id;
             const query = { _id: ObjectId(id) };
+            const available = await bookingCollection.findOne(query);
+            const totalAvailable = await toolsCollection.findOne({ name: available.toolsName });
             const result = await bookingCollection.deleteOne(query);
-            console.log(result);
-            res.send(result);
+            res.send({ success: result, update: totalAvailable });
         });
     }
     finally {
