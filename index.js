@@ -4,11 +4,25 @@ const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
 require('dotenv').config()
 var jwt = require('jsonwebtoken');
+const { verify } = require('jsonwebtoken');
 const port = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
-
+const varifyJWT = async (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+        return res.status(401).send({ message: 'UnAuthorize Access' })
+    }
+    const token = authHeader.split(' ')[1];
+    jwt.verify(token, process.env.ACCESS_SECREET_KEY, function (error, decoded) {
+        if (error) {
+            return res.status(403).send({ message: 'Forbidden Access' });
+        }
+        req.decoded = decoded;
+        next();
+    })
+}
 
 const uri = `mongodb+srv://${process.env.USER}:${process.env.PASSWORD}@cluster0.asfev.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
@@ -22,9 +36,20 @@ const run = async () => {
 
         //show all tools in home
         app.get('/tools', async (req, res) => {
-            const result = await toolsCollection.find().limit(6).toArray();
+            const result = await toolsCollection.find().toArray();
             res.send(result);
         });
+
+        //delete tools in all product page
+        app.delete('/tools/:id', async (req, res) => {
+            const id = req.params.id;
+            console.log(id);
+            const query = { _id: ObjectId(id) };
+            const result = await toolsCollection.deleteOne(query);
+            console.log(result);
+            res.send(result);
+        });
+
 
         //show review in home
         app.get('/reviews', async (req, res) => {
@@ -85,11 +110,18 @@ const run = async () => {
         })
 
         //show mybooking   myOrder page 
-        app.get('/booking', async (req, res) => {
+        app.get('/booking', varifyJWT, async (req, res) => {
             const email = req.query.email;
-            const query = { email: email };
-            const result = await bookingCollection.find(query).toArray();
-            res.send(result);
+            const decodedEmail = req.decoded.email;
+            if (email === decodedEmail) {
+                const query = { email: email };
+                const result = await bookingCollection.find(query).toArray();
+                return res.send(result);
+            }
+            else {
+                return res.status(403).send({ message: 'Forbidden Access' });
+            }
+
         })
 
         // delete booking in myOrder page
