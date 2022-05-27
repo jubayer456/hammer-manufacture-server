@@ -34,19 +34,37 @@ const run = async () => {
         const userCollection = client.db("hammer").collection("user");
         const bookingCollection = client.db("hammer").collection("booking");
 
+
+        //verify admin 
+        const verifyAdmin = async (req, res, next) => {
+            const requester = req.decoded.email;
+            const requesterAccount = await userCollection.findOne({ email: requester });
+            if (requesterAccount.role === 'admin') {
+                next();
+            }
+            else {
+                return res.status(403).send({ message: 'Forbidden Access' });
+            }
+
+        }
+
         //show all tools in home
         app.get('/tools', async (req, res) => {
             const result = await toolsCollection.find().toArray();
             res.send(result);
         });
+        //post Tools in add Product
+        app.post('/tools', varifyJWT, verifyAdmin, async (req, res) => {
+            const addTool = req.body;
+            const result = await toolsCollection.insertOne(addTool);
+            res.send(result);
+        });
 
         //delete tools in all product page
-        app.delete('/tools/:id', async (req, res) => {
+        app.delete('/tools/:id', varifyJWT, verifyAdmin, async (req, res) => {
             const id = req.params.id;
-            console.log(id);
             const query = { _id: ObjectId(id) };
             const result = await toolsCollection.deleteOne(query);
-            console.log(result);
             res.send(result);
         });
 
@@ -60,7 +78,6 @@ const run = async () => {
         //post a review in Myreview page
         app.post('/reviews', async (req, res) => {
             const rev = req.body;
-            console.log(rev);
             const result = await reviewCollection.insertOne(rev);
             res.send(result);
         });
@@ -98,8 +115,21 @@ const run = async () => {
                 $set: user
             };
             const result = await userCollection.updateOne(filter, updateDoc, options);
-            const token = jwt.sign(filter, process.env.ACCESS_SECREET_KEY, { expiresIn: '1h' });
+            const token = jwt.sign(filter, process.env.ACCESS_SECREET_KEY, { expiresIn: '1d' });
             res.send({ result, token });
+        })
+
+        //update profile picture
+        app.put('/profile/:email', varifyJWT, async (req, res) => {
+            const user = req.body;
+            const email = req.params.email;
+            const filter = { email: email };
+            const options = { upsert: true };
+            const updateDoc = {
+                $set: user
+            };
+            const result = await userCollection.updateOne(filter, updateDoc, options);
+            res.send(result);
         })
 
         //add order booking page 
@@ -125,7 +155,7 @@ const run = async () => {
         })
 
         // delete booking in myOrder page
-        app.delete('/booking/:id', async (req, res) => {
+        app.delete('/booking/:id', varifyJWT, async (req, res) => {
             const id = req.params.id;
             const query = { _id: ObjectId(id) };
             const available = await bookingCollection.findOne(query);
@@ -133,13 +163,53 @@ const run = async () => {
             const result = await bookingCollection.deleteOne(query);
             res.send({ success: result, update: totalAvailable });
         });
+
+        //get All users in manageuser page
+        app.get('/users', async (req, res) => {
+            const user = req.query.email;
+            if (user) {
+                const result = await userCollection.find({ email: user }).toArray();
+                return res.send(result);
+            }
+            const result = await userCollection.find().toArray();
+            res.send(result);
+
+        })
+        //delete a user 
+        app.delete('/users/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) };
+            const result = await userCollection.deleteOne(query);
+            res.send(result);
+        })
+
+        //make admin in manage users
+        app.put('/users/admin/:email', varifyJWT, verifyAdmin, async (req, res) => {
+            const user = req.body;
+            console.log(user);
+            const email = req.params.email;
+            const filter = { email: email };
+            const options = { upsert: true };
+            const updateDoc = {
+                $set: user
+            };
+            const result = await userCollection.updateOne(filter, updateDoc, options);
+            res.send(result);
+        })
+
+        //get admin token 
+        app.get('/admin/:email', async (req, res) => {
+            const email = req.params.email;
+            const request = await userCollection.findOne({ email: email })
+            const isAdmin = request.role === 'admin';
+            res.send({ admin: isAdmin });
+        })
     }
     finally {
 
     }
 }
 run().catch(console.dir);
-
 
 
 
