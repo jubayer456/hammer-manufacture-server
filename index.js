@@ -3,9 +3,9 @@ const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
 require('dotenv').config()
-var jwt = require('jsonwebtoken');
-const { verify } = require('jsonwebtoken');
+const jwt = require('jsonwebtoken');
 const port = process.env.PORT || 5000;
+const stripe = require('stripe')(process.env.STRIP_SECRET_KEY);
 
 app.use(cors());
 app.use(express.json());
@@ -76,7 +76,7 @@ const run = async () => {
         });
 
         //post a review in Myreview page
-        app.post('/reviews', async (req, res) => {
+        app.post('/reviews', varifyJWT, async (req, res) => {
             const rev = req.body;
             const result = await reviewCollection.insertOne(rev);
             res.send(result);
@@ -165,7 +165,7 @@ const run = async () => {
         });
 
         //get All users in manageuser page
-        app.get('/users', async (req, res) => {
+        app.get('/users', varifyJWT, verifyAdmin, async (req, res) => {
             const user = req.query.email;
             if (user) {
                 const result = await userCollection.find({ email: user }).toArray();
@@ -176,7 +176,7 @@ const run = async () => {
 
         })
         //delete a user 
-        app.delete('/users/:id', async (req, res) => {
+        app.delete('/users/:id', varifyJWT, verifyAdmin, async (req, res) => {
             const id = req.params.id;
             const query = { _id: ObjectId(id) };
             const result = await userCollection.deleteOne(query);
@@ -203,6 +203,43 @@ const run = async () => {
             const request = await userCollection.findOne({ email: email })
             const isAdmin = request.role === 'admin';
             res.send({ admin: isAdmin });
+        })
+
+        //get booking for payment
+        app.get('/booking/:id', varifyJWT, async (req, res) => {
+            const id = req.params.id;
+            const result = await bookingCollection.findOne({ _id: ObjectId(id) });
+            res.send(result);
+        });
+
+        //update payment status i for order and create a new payment collection
+
+        app.patch('/booking/:id', varifyJWT, async (req, res) => {
+            const id = req.params.id;
+            const payment = req.body;
+            const filter = { _id: ObjectId(id) };
+            const updatedDoc = {
+                $set: {
+                    paid: true,
+                    transactionId: payment.transactionId
+                }
+            }
+            const updatingBooking = await bookingCollection.updateOne(filter, updatedDoc);
+            const result = await paymentCollection.insertOne(payment);
+            res.send(updatingBooking);
+        })
+
+        //creat payment 
+        app.post('/create-payment-intent', varifyJWT, async (req, res) => {
+            const service = req.body;
+            const price = service.price;
+            const amount = price * 100;
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: 'usd',
+                payment_method_types: ['card']
+            });
+            res.send({ clientSecret: paymentIntent.client_secret })
         })
     }
     finally {
