@@ -49,6 +49,11 @@ const run = async () => {
         }
 
         //show all tools in home
+        app.get('/hometool', async (req, res) => {
+            const result = await toolsCollection.find().limit(6).toArray();
+            res.send(result);
+        });
+        //show all tools for manage all product 
         app.get('/tools', async (req, res) => {
             const result = await toolsCollection.find().toArray();
             res.send(result);
@@ -143,13 +148,19 @@ const run = async () => {
         app.get('/booking', varifyJWT, async (req, res) => {
             const email = req.query.email;
             const decodedEmail = req.decoded.email;
-            if (email === decodedEmail) {
-                const query = { email: email };
-                const result = await bookingCollection.find(query).toArray();
-                return res.send(result);
+            if (email) {
+                if (email === decodedEmail) {
+                    const query = { email: email };
+                    const result = await bookingCollection.find(query).toArray();
+                    return res.send(result);
+                }
+                else {
+                    return res.status(403).send({ message: 'Forbidden Access' });
+                }
             }
             else {
-                return res.status(403).send({ message: 'Forbidden Access' });
+                result = await bookingCollection.find().toArray();
+                return res.send(result);
             }
 
         })
@@ -157,6 +168,7 @@ const run = async () => {
         // delete booking in myOrder page
         app.delete('/booking/:id', varifyJWT, async (req, res) => {
             const id = req.params.id;
+            console.log(id);
             const query = { _id: ObjectId(id) };
             const available = await bookingCollection.findOne(query);
             const totalAvailable = await toolsCollection.findOne({ name: available.toolsName });
@@ -165,10 +177,11 @@ const run = async () => {
         });
 
         //get All users in manageuser page
-        app.get('/users', varifyJWT, verifyAdmin, async (req, res) => {
+        app.get('/users', varifyJWT, async (req, res) => {
             const user = req.query.email;
+            console.log(user);
             if (user) {
-                const result = await userCollection.find({ email: user }).toArray();
+                const result = await userCollection.findOne({ email: user });
                 return res.send(result);
             }
             const result = await userCollection.find().toArray();
@@ -218,6 +231,7 @@ const run = async () => {
             const id = req.params.id;
             const payment = req.body;
             const filter = { _id: ObjectId(id) };
+            console.log(payment);
             const updatedDoc = {
                 $set: {
                     paid: true,
@@ -225,7 +239,7 @@ const run = async () => {
                 }
             }
             const updatingBooking = await bookingCollection.updateOne(filter, updatedDoc);
-            const result = await paymentCollection.insertOne(payment);
+            // const result = await paymentCollection.insertOne(payment);
             res.send(updatingBooking);
         })
 
@@ -241,6 +255,7 @@ const run = async () => {
             });
             res.send({ clientSecret: paymentIntent.client_secret })
         })
+
     }
     finally {
 
