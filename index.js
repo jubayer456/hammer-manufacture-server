@@ -5,7 +5,7 @@ const app = express();
 require('dotenv').config()
 const jwt = require('jsonwebtoken');
 const port = process.env.PORT || 5000;
-const stripe = require('stripe')(process.env.STRIP_SECRET_KEY);
+const stripe = require('stripe')('sk_test_51L4JARD2IOxGf7i4UkAomutSVfeXvK6IVf9GLeETieP3tINuBoPKevF4H8AEwe54rk96DuTmIoQFYqzkrlE6fcSm00Fu7fzHtz');
 
 app.use(cors());
 app.use(express.json());
@@ -15,7 +15,7 @@ const varifyJWT = async (req, res, next) => {
         return res.status(401).send({ message: 'UnAuthorize Access' })
     }
     const token = authHeader.split(' ')[1];
-    jwt.verify(token, process.env.ACCESS_SECREET_KEY, function (error, decoded) {
+    jwt.verify(token, '0ef5960037e736c08f9b1ea0743386054c4ef947e54502adde71de9d4c3e16bd23fd202b4e63eb0de39fa7ac944cca2fbe871ce928fc115b6129c33fdad9603a', function (error, decoded) {
         if (error) {
             return res.status(403).send({ message: 'Forbidden Access' });
         }
@@ -24,7 +24,7 @@ const varifyJWT = async (req, res, next) => {
     })
 }
 
-const uri = `mongodb+srv://${process.env.USER}:${process.env.PASSWORD}@cluster0.asfev.mongodb.net/?retryWrites=true&w=majority`;
+const uri = `mongodb+srv://hammer-manufacture:TdbC4XqIr4NFbYZK@cluster0.asfev.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 const run = async () => {
     try {
@@ -49,6 +49,11 @@ const run = async () => {
         }
 
         //show all tools in home
+        app.get('/hometool', async (req, res) => {
+            const result = await toolsCollection.find().limit(6).toArray();
+            res.send(result);
+        });
+        //show all tools for manage all product 
         app.get('/tools', async (req, res) => {
             const result = await toolsCollection.find().toArray();
             res.send(result);
@@ -143,20 +148,26 @@ const run = async () => {
         app.get('/booking', varifyJWT, async (req, res) => {
             const email = req.query.email;
             const decodedEmail = req.decoded.email;
-            if (email === decodedEmail) {
-                const query = { email: email };
-                const result = await bookingCollection.find(query).toArray();
-                return res.send(result);
+            if (email) {
+                if (email === decodedEmail) {
+                    const query = { email: email };
+                    const result = await bookingCollection.find(query).toArray();
+                    return res.send(result);
+                }
+                else {
+                    return res.status(403).send({ message: 'Forbidden Access' });
+                }
             }
             else {
-                return res.status(403).send({ message: 'Forbidden Access' });
+                const result = await bookingCollection.find().toArray();
+                return res.send(result);
             }
-
         })
 
         // delete booking in myOrder page
         app.delete('/booking/:id', varifyJWT, async (req, res) => {
             const id = req.params.id;
+            console.log(id);
             const query = { _id: ObjectId(id) };
             const available = await bookingCollection.findOne(query);
             const totalAvailable = await toolsCollection.findOne({ name: available.toolsName });
@@ -165,15 +176,14 @@ const run = async () => {
         });
 
         //get All users in manageuser page
-        app.get('/users', varifyJWT, verifyAdmin, async (req, res) => {
+        app.get('/users', varifyJWT, async (req, res) => {
             const user = req.query.email;
             if (user) {
-                const result = await userCollection.find({ email: user }).toArray();
+                const result = await userCollection.findOne({ email: user });
                 return res.send(result);
             }
             const result = await userCollection.find().toArray();
             res.send(result);
-
         })
         //delete a user 
         app.delete('/users/:id', varifyJWT, verifyAdmin, async (req, res) => {
@@ -218,6 +228,7 @@ const run = async () => {
             const id = req.params.id;
             const payment = req.body;
             const filter = { _id: ObjectId(id) };
+            console.log(payment);
             const updatedDoc = {
                 $set: {
                     paid: true,
@@ -225,7 +236,7 @@ const run = async () => {
                 }
             }
             const updatingBooking = await bookingCollection.updateOne(filter, updatedDoc);
-            const result = await paymentCollection.insertOne(payment);
+            // const result = await paymentCollection.insertOne(payment);
             res.send(updatingBooking);
         })
 
