@@ -15,7 +15,7 @@ const varifyJWT = async (req, res, next) => {
         return res.status(401).send({ message: 'UnAuthorize Access' })
     }
     const token = authHeader.split(' ')[1];
-    jwt.verify(token, '0ef5960037e736c08f9b1ea0743386054c4ef947e54502adde71de9d4c3e16bd23fd202b4e63eb0de39fa7ac944cca2fbe871ce928fc115b6129c33fdad9603a', function (error, decoded) {
+    jwt.verify(token, process.env.ACCESS_SECREET_KEY, function (error, decoded) {
         if (error) {
             return res.status(403).send({ message: 'Forbidden Access' });
         }
@@ -159,7 +159,6 @@ const run = async () => {
                 }
             }
             else {
-                const result = await bookingCollection.find().toArray();
                 result = await bookingCollection.find().toArray();
                 return res.send(result);
             }
