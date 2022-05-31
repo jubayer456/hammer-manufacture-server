@@ -24,7 +24,7 @@ const varifyJWT = async (req, res, next) => {
     })
 }
 
-const uri = `mongodb+srv://hammer-manufacture:TdbC4XqIr4NFbYZK@cluster0.asfev.mongodb.net/?retryWrites=true&w=majority`;
+const uri = 'mongodb+srv://hammer-manufacture:TdbC4XqIr4NFbYZK@cluster0.asfev.mongodb.net/?retryWrites=true&w=majority';
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 const run = async () => {
     try {
@@ -160,6 +160,7 @@ const run = async () => {
             }
             else {
                 const result = await bookingCollection.find().toArray();
+                result = await bookingCollection.find().toArray();
                 return res.send(result);
             }
         })
@@ -178,6 +179,7 @@ const run = async () => {
         //get All users in manageuser page
         app.get('/users', varifyJWT, async (req, res) => {
             const user = req.query.email;
+            console.log(user);
             if (user) {
                 const result = await userCollection.findOne({ email: user });
                 return res.send(result);
@@ -252,6 +254,7 @@ const run = async () => {
             });
             res.send({ clientSecret: paymentIntent.client_secret })
         })
+
     }
     finally {
 
